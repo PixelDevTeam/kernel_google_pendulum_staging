@@ -41,6 +41,7 @@
 extern int slst_gpio_base_id;
 #define PROC_AWAKE_ID 12 /* 12th bit */
 
+// #define DEBUG_LOG
 const char *pm_states[PM_SUSPEND_MAX] = {
 	[PM_SUSPEND_FREEZE] = "freeze",
 	[PM_SUSPEND_MEM] = "mem",
@@ -275,11 +276,6 @@ void __init pm_states_init(void)
 	 * initialize mem_sleep_states[] accordingly here.
 	 */
 	mem_sleep_states[PM_SUSPEND_FREEZE] = mem_sleep_labels[PM_SUSPEND_FREEZE];
-
-#ifdef CONFIG_PM_SLEEP_MONITOR
-	init_suspend_monitor_thread();
-#endif
-
 }
 
 static int __init mem_sleep_default_setup(char *str)
