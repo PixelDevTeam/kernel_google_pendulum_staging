@@ -2760,6 +2760,11 @@ static inline bool task_sched_boost(struct task_struct *p)
 	return true;
 }
 
+static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
+{
+	return SCHED_BOOST_NONE;
+}
+
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
 static inline int sched_boost(void)
