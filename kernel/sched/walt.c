@@ -50,6 +50,37 @@ u64 walt_load_reported_window;
 static struct irq_work walt_cpufreq_irq_work;
 static struct irq_work walt_migration_irq_work;
 
+u64 sched_ktime_clock(void)
+{
+	if (unlikely(sched_ktime_suspended))
+		return ktime_to_ns(ktime_last);
+	return ktime_get_ns();
+}
+
+static void sched_resume(void)
+{
+	sched_ktime_suspended = false;
+}
+
+static int sched_suspend(void)
+{
+	ktime_last = ktime_get();
+	sched_ktime_suspended = true;
+	return 0;
+}
+
+static struct syscore_ops sched_syscore_ops = {
+	.resume	= sched_resume,
+	.suspend = sched_suspend
+};
+
+static int __init sched_init_ops(void)
+{
+	register_syscore_ops(&sched_syscore_ops);
+	return 0;
+}
+late_initcall(sched_init_ops);
+
 static void acquire_rq_locks_irqsave(const cpumask_t *cpus,
 				     unsigned long *flags)
 {
