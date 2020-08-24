@@ -7701,7 +7701,7 @@ static inline struct cpumask *find_rtg_target(struct task_struct *p)
 }
 #endif
 
-static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
+static int select_energy_cpu_brute(struct task_struct *p, int cpu, int prev_cpu, int sync)
 {
 	bool boosted, prefer_idle;
 	struct sched_domain *sd;
@@ -7742,8 +7742,6 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 		sync = 0;
 
 	if (sysctl_sched_sync_hint_enable && sync) {
-		int cpu = smp_processor_id();
-
 		if (bias_to_waker_cpu(p, cpu, rtg_target)) {
 			schedstat_inc(p->se.statistics.nr_wakeups_secb_sync);
 			schedstat_inc(this_rq()->eas_stats.secb_sync);
@@ -7880,17 +7878,11 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 			cpumask_test_cpu(cpu, tsk_cpus_allowed(p)));
 	}
 
-	if (energy_aware() && !(cpu_rq(prev_cpu)->rd->overutilized)) {
-		/*
-		 * If the sync flag is set but ignored, prefer to
-		 * select cpu in the same cluster as current. So
-		 * if current is a big cpu and sync is set, indicate
-		 * that the selection algorithm for a boosted task
-		 * should be used.
-		 */
-		bool sync_boost = sync && cpu >= start_cpu(true);
-
-		return select_energy_cpu_brute(p, prev_cpu, sync_boost);
+	if (energy_aware()) {
+		rcu_read_lock();
+		new_cpu = select_energy_cpu_brute(p, cpu, prev_cpu, sync);
+		rcu_read_unlock();
+		return new_cpu;
 	}
 
 	rcu_read_lock();
@@ -12312,7 +12304,8 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 {
 	int new_cpu;
 	int active_balance, ret;
-	int cpu = task_cpu(p);
+	int cpu = smp_processor_id();
+	int prev_cpu = task_cpu(p);
 
 	if (rq->misfit_task) {
 		if (rq->curr->state != TASK_RUNNING ||
@@ -12324,7 +12317,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 
 		raw_spin_lock(&migration_lock);
 		rcu_read_lock();
-		new_cpu = select_energy_cpu_brute(p, cpu, 0);
+		new_cpu = select_energy_cpu_brute(p, cpu, prev_cpu, 0);
 		rcu_read_unlock();
 		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
 			active_balance = kick_active_balance(rq, p, new_cpu);
