@@ -7804,11 +7804,11 @@ static int select_energy_cpu_brute(struct task_struct *p, int cpu, int prev_cpu,
 	schedstat_inc(p->se.statistics.nr_wakeups_secb_attempts);
 	schedstat_inc(this_rq()->eas_stats.secb_attempts);
 
-	rcu_read_lock();
-	boosted = task_is_boosted(p);
 #ifdef CONFIG_CGROUP_SCHEDTUNE
+	boosted = schedtune_task_boost(p) > 0;
 	prefer_idle = schedtune_prefer_idle(p) > 0;
 #else
+	boosted = get_sysctl_sched_cfs_boost() > 0;
 	prefer_idle = 0;
 #endif
 
@@ -7838,24 +7838,24 @@ static int select_energy_cpu_brute(struct task_struct *p, int cpu, int prev_cpu,
 	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
 	if (!sd) {
 		target_cpu = prev_cpu;
-		goto unlock;
+		goto out;
 	}
 
 	sync_entity_load_avg(&p->se);
 
 	/* Find a cpu with sufficient capacity */
-	next_cpu = find_best_target(p, &backup_cpu, boosted || sync_boost,
-				    prefer_idle, &fbt_env);
+	next_cpu = find_best_target(p, &backup_cpu, boosted, prefer_idle,
+				    &fbt_env);
 	if (next_cpu == -1) {
 		target_cpu = prev_cpu;
-		goto unlock;
+		goto out;
 	}
 
 	if (fbt_env.placement_boost || fbt_env.need_idle ||
 			(rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
 			cpumask_test_cpu(next_cpu, rtg_target)))) {
 		target_cpu = next_cpu;
-		goto unlock;
+		goto out;
 	}
 
 	/* Unconditionally prefer IDLE CPUs for boosted/prefer_idle tasks */
@@ -7863,7 +7863,7 @@ static int select_energy_cpu_brute(struct task_struct *p, int cpu, int prev_cpu,
 		schedstat_inc(p->se.statistics.nr_wakeups_secb_idle_bt);
 		schedstat_inc(this_rq()->eas_stats.secb_idle_bt);
 		target_cpu = next_cpu;
-		goto unlock;
+		goto out;
 	}
 
 	target_cpu = prev_cpu;
@@ -7896,7 +7896,7 @@ static int select_energy_cpu_brute(struct task_struct *p, int cpu, int prev_cpu,
 			schedstat_inc(p->se.statistics.nr_wakeups_secb_insuff_cap);
 			schedstat_inc(this_rq()->eas_stats.secb_insuff_cap);
 			target_cpu = next_cpu;
-			goto unlock;
+			goto out;
 		}
 
 		/* Check if EAS_CPU_NXT is a more energy efficient CPU */
@@ -7904,13 +7904,13 @@ static int select_energy_cpu_brute(struct task_struct *p, int cpu, int prev_cpu,
 			schedstat_inc(p->se.statistics.nr_wakeups_secb_nrg_sav);
 			schedstat_inc(this_rq()->eas_stats.secb_nrg_sav);
 			target_cpu = eenv.cpu[eenv.next_idx].cpu_id;
-			goto unlock;
+			goto out;
 		}
 
 		schedstat_inc(p->se.statistics.nr_wakeups_secb_no_nrg_sav);
 		schedstat_inc(this_rq()->eas_stats.secb_no_nrg_sav);
 		target_cpu = prev_cpu;
-		goto unlock;
+		goto out;
 	}
 
 	schedstat_inc(p->se.statistics.nr_wakeups_secb_count);
@@ -10817,12 +10817,14 @@ static int idle_balance(struct rq *this_rq)
 	if (!cpu_active(this_cpu))
 		return 0;
 
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * Force higher capacity CPUs doing load balance, when the lower
 	 * capacity CPUs has some misfit tasks.
 	 */
 	if (!is_min_capacity_cpu(this_cpu) && min_cap_cluster_has_misfit_task())
 		force_lb = true;
+#endif
 
 	/*
 	 * We must set idle_stamp _before_ calling idle_balance(), such that we
