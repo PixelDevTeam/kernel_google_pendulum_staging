@@ -177,25 +177,6 @@ static int suspend_monitor_kthread(void *arg)
 	return 0;
 }
 
-static void init_suspend_monitor_thread(void)
-{
-	int ret;
-
-	ksuspend_mon_tsk = kthread_create(suspend_monitor_kthread,
-		NULL, "ksuspend_mon");
-	if (IS_ERR(ksuspend_mon_tsk)) {
-		ret = PTR_ERR(ksuspend_mon_tsk);
-		ksuspend_mon_tsk = NULL;
-		pr_err("Create suspend_monitor_kthread failed!"
-			" ret = %d\n", ret);
-		return;
-	}
-
-	suspend_mon_toggle = TOGGLE_NONE;
-	wake_up_process(ksuspend_mon_tsk);
-
-	return;
-}
 #endif
 
 void freeze_set_ops(const struct platform_freeze_ops *ops)
