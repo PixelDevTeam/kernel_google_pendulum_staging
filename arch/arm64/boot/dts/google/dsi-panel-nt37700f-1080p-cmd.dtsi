@@ -200,6 +200,9 @@
 					39 01 00 00 00 00 02 65 01
 				];
 				google,dsi-lp-command-state = "dsi_lp_mode";
+		                qcom,ulps-enabled;
+		                qcom,suspend-ulps-enabled;
+		                qcom,panel-allow-phy-poweroff;
 			};
 		};
 	};

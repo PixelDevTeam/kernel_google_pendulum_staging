@@ -254,6 +254,9 @@
 				google,dsi-hbm-range-commands-state =
 					"dsi_lp_mode";
 			};
+		qcom,ulps-enabled;
+		qcom,suspend-ulps-enabled;
+		qcom,panel-allow-phy-poweroff;
 		};
 	};
 };
